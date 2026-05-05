@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_sirene_etablissements
+    description: "Établissements SIRENE Loire-Atlantique — nettoyés et typés"
+    columns:
+      - name: siret
+        description: "Identifiant unique établissement"
+        tests: [not_null]
+
+      - name: siren
+        tests: [not_null]
+
+      - name: etat_etablissement
+        tests:
+          - accepted_values:
+              values: ['Actif', 'Fermé']
+
+      - name: est_siege
+        description: "TRUE si l'établissement est le siège social"
+        tests:
+          - accepted_values:
+              values: [true, false]
+              quote: false
+
+      - name: code_departement
+        description: "Toujours 44 (Loire-Atlantique) dans ce dataset"
+        tests:
+          - accepted_values:
+              values: ['44']

@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: raw
+    database: ALAN_DW
+    schema: RAW
+    description: "Données brutes SIRENE — Loire-Atlantique (44)"
+
+    tables:
+      - name: sirene_etablissements
+        description: "Établissements Loire-Atlantique chargés depuis Parquet SIRENE"
+        columns:
+          - name: SIRET
+            description: "Identifiant établissement (14 chiffres)"
+            tests: [not_null]
+          - name: SIREN
+            description: "Identifiant unité légale (9 chiffres)"
+            tests: [not_null]
+          - name: DATE_CREATION_ETAB_PARSED
+            description: "Date de création établissement parsée — à utiliser à la place de DATE_CREATION_ETAB"
+            meta:
+              note: "DATE_CREATION_ETAB (epoch µs brut) ne doit pas être utilisée directement"
+          - name: CODE_POSTAL
+            meta: {pii: false}
+          - name: ETAT_ADMIN_ETAB
+            description: "Actif ou Fermé"
