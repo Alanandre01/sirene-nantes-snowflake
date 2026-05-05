@@ -1,0 +1,27 @@
+name: 'sirene_nantes'
+version: '1.0.0'
+config-version: 2
+
+profile: 'sirene_nantes'  # doit matcher profiles.yml
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+packages-install-path: "C:/Users/alana/AppData/Local/dbt_packages/sirene_nantes"
+
+models:
+  sirene_nantes:
+    staging:
+      +materialized: view     # staging = views légères
+      +schema: staging
+    intermediate:
+      +materialized: ephemeral  # pas d'objet créé dans Snowflake
+
+    marts:
+      +materialized: table    # marts = tables pour BI
+      +schema: marts
