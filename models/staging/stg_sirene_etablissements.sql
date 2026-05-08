@@ -36,14 +36,15 @@ cleaned AS (
         NULLIF(DENOMINATION_UNITE_LEGALE, '[ND]')          AS denomination,
         ETAT_ADMIN_UL                                      AS etat_unite_legale,
 
-        CASE
-            WHEN CAST(ANNEE AS INTEGER) = 1900 THEN NULL
-            ELSE CAST(ANNEE AS INTEGER)
-        END                                                AS annee_snapshot,
-        CAST(MOIS AS INTEGER)                              AS mois_snapshot
+        -- ANNEE=1900 filtré en WHERE — cast direct
+        CAST(ANNEE AS INTEGER)                             AS annee_snapshot,
+        CAST(MOIS  AS INTEGER)                             AS mois_snapshot
 
     FROM source
+
     WHERE LENGTH(CAST(SIRET AS VARCHAR)) = 14
+      AND CAST(ANNEE AS INTEGER) != 1900
+      AND CAST(MOIS  AS INTEGER) BETWEEN 1 AND 12
 )
 
 SELECT * FROM cleaned
