@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: fct_etablissements
+    description: "Établissements Loire-Atlantique (44) — modèle incrémental SIRENE"
+    columns:
+      - name: siret
+        description: "Identifiant établissement (14 chiffres)"
+        tests: [not_null]
+
+      - name: siren
+        description: "Identifiant unité légale (9 chiffres)"
+        tests: [not_null]
+
+      - name: etat_etablissement
+        description: "Statut administratif de l'établissement"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Actif', 'Fermé']
+
+      - name: annee_snapshot
+        description: "Année du snapshot SIRENE"
+        tests: [not_null]
+
+      - name: mois_snapshot
+        description: "Mois du snapshot SIRENE (1-12)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+      - name: partition_annee_mois
+        description: "Clé de partition YYYY-MM"
+        tests: [not_null]
+
+      - name: loaded_at
+        description: "Timestamp de chargement dbt"
+        tests: [not_null]
