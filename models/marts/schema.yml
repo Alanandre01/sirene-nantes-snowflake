@@ -2,15 +2,41 @@ version: 2
 
 models:
   - name: fct_etablissements
-    description: "Établissements Loire-Atlantique (44) — modèle incrémental SIRENE"
+    description: >
+      Établissements SIRENE Loire-Atlantique — modèle incrémental.
+      Chargé par partition ANNEE/MOIS depuis data.gouv.fr.
+      Stratégie merge sur etablissement_sk (MD5 de siren+nic+partition_annee_mois).
+    meta:
+      owner: "alan"
+      domaine: "registre_entreprises"
+
+    tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          min_value: 1000
+          max_value: 1000000
+
     columns:
+      - name: etablissement_sk
+        description: "Clé de substitution MD5(siren + nic + partition_annee_mois) — unique par snapshot"
+        tests:
+          - not_null
+          - unique
+
       - name: siret
-        description: "Identifiant établissement (14 chiffres)"
-        tests: [not_null]
+        description: "Identifiant établissement (14 chiffres) — non unique : même SIRET présent dans chaque partition"
+        meta:
+          pii: false
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_value_lengths_to_equal:
+              value: 14
 
       - name: siren
-        description: "Identifiant unité légale (9 chiffres)"
+        description: "Identifiant de l'unité légale (9 chiffres)"
         tests: [not_null]
+
+      - name: nic
+        description: "Numéro interne de classement de l'établissement (5 chiffres)"
 
       - name: etat_etablissement
         description: "Statut administratif de l'établissement"
@@ -19,9 +45,79 @@ models:
           - accepted_values:
               values: ['Actif', 'Fermé']
 
+      - name: est_actif
+        description: "Booléen dérivé de etat_etablissement = 'Actif'"
+
+      - name: est_siege
+        description: "Vrai si l'établissement est le siège de l'unité légale"
+
+      - name: statut_diffusion
+        description: "Niveau de diffusion publique des données (O = diffusible)"
+
+      - name: code_naf_etab
+        description: "Code NAF de l'activité principale de l'établissement"
+
+      - name: code_naf_ul
+        description: "Code NAF de l'activité principale de l'unité légale"
+
+      - name: tranche_effectif
+        description: "Tranche d'effectif salarié de l'établissement"
+
+      - name: est_employeur
+        description: "Indique si l'établissement a des salariés (depuis CARACTERE_EMPLOYEUR)"
+
+      - name: code_postal
+        description: "Code postal de l'établissement"
+
+      - name: commune
+        description: "Libellé de la commune"
+
+      - name: code_commune
+        description: "Code INSEE de la commune"
+
+      - name: departement
+        description: "Libellé du département"
+
+      - name: code_departement
+        description: "Code du département (toujours 44 dans ce dataset)"
+
+      - name: region
+        description: "Libellé de la région"
+
+      - name: code_region
+        description: "Code de la région"
+
+      - name: denomination
+        description: "Dénomination de l'unité légale (NULL si [ND] en source)"
+        meta:
+          pii: true
+          rgpd_category: "données entreprise"
+
+      - name: categorie_entreprise
+        description: "Catégorie de l'entreprise (PME, ETI, GE…)"
+
+      - name: etat_unite_legale
+        description: "Statut administratif de l'unité légale"
+
+      - name: categorie_juridique
+        description: "Code de la catégorie juridique de l'unité légale"
+
+      - name: date_creation_etab
+        description: "Date de création de l'établissement (depuis DATE_CREATION_ETAB_PARSED)"
+
+      - name: date_fermeture_etab
+        description: "Date de fermeture de l'établissement"
+
+      - name: date_creation_ul
+        description: "Date de création de l'unité légale"
+
       - name: annee_snapshot
-        description: "Année du snapshot SIRENE"
-        tests: [not_null]
+        description: "Année du snapshot SIRENE — sentinelle 1900 exclue en staging"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1901
+              max_value: 2100
 
       - name: mois_snapshot
         description: "Mois du snapshot SIRENE (1-12)"
@@ -31,9 +127,9 @@ models:
               values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
       - name: partition_annee_mois
-        description: "Clé de partition YYYY-MM"
+        description: "Clé de partition au format YYYY-MM — utilisée pour le filtre incrémental"
         tests: [not_null]
 
-      - name: loaded_at
-        description: "Timestamp de chargement dbt"
+      - name: dbt_loaded_at
+        description: "Timestamp de chargement dbt (CURRENT_TIMESTAMP au moment du run)"
         tests: [not_null]
