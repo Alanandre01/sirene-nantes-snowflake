@@ -4,23 +4,145 @@ sources:
   - name: raw
     database: ALAN_DW
     schema: RAW
-    description: "Données brutes SIRENE — Loire-Atlantique (44)"
+    description: "Données brutes SIRENE chargées depuis Parquet — Loire-Atlantique (44)"
+    meta:
+      source_system: "data.gouv.fr / INSEE"
+      refresh_frequency: "mensuelle"
+      rgpd_note: >
+        Contient des données potentiellement personnelles pour les entrepreneurs individuels.
+        Le champ STATUT_DIFFUSION indique le niveau de diffusabilité (O = total, P = partiel).
 
     tables:
       - name: sirene_etablissements
-        description: "Établissements Loire-Atlantique chargés depuis Parquet SIRENE"
+        description: >
+          Établissements du département Loire-Atlantique (44) issus de la base SIRENE.
+          Source : data.gouv.fr. Données publiques sous licence ODbL.
+          Attention : les lignes avec STATUT_DIFFUSION = P ont leurs données personnelles
+          masquées avec la valeur [ND] (droit d'opposition RGPD exercé).
         columns:
           - name: SIRET
-            description: "Identifiant établissement (14 chiffres)"
-            tests: [not_null]
-          - name: SIREN
-            description: "Identifiant unité légale (9 chiffres)"
-            tests: [not_null]
-          - name: DATE_CREATION_ETAB_PARSED
-            description: "Date de création établissement parsée — à utiliser à la place de DATE_CREATION_ETAB"
+            description: "Identifiant établissement (14 chiffres) — non unique en RAW car la table contient plusieurs partitions mensuelles"
             meta:
-              note: "DATE_CREATION_ETAB (epoch µs brut) ne doit pas être utilisée directement"
+              pii: true
+              rgpd_category: "identifiant direct"
+            tests:
+              - not_null
+
+          - name: SIREN
+            description: "Identifiant de l'unité légale (9 chiffres)"
+            meta:
+              pii: true
+              rgpd_category: "identifiant direct"
+            tests: [not_null]
+
+          - name: NIC
+            description: "Numéro Interne de Classement — différencie les établissements d'un même SIREN"
+            meta:
+              pii: false
+              rgpd_category: "identifiant partiel (combiné avec SIREN = SIRET)"
+
+          - name: STATUT_DIFFUSION
+            description: >
+              Niveau de diffusabilité : O = données totalement diffusables,
+              P = données partiellement diffusables (entrepreneur individuel ayant exercé
+              son droit d'opposition RGPD — champs personnels remplacés par [ND]).
+            meta:
+              pii: false
+              rgpd_category: "métadonnée de conformité RGPD"
+            tests:
+              - accepted_values:
+                  values: ['O', 'P']
+
+          - name: DENOMINATION_UNITE_LEGALE
+            description: "Raison sociale ou nom de l'unité légale — peut contenir le nom d'un entrepreneur individuel"
+            meta:
+              pii: true
+              rgpd_category: "donnée personnelle potentielle (entrepreneurs individuels)"
+              note: "Valeur [ND] quand STATUT_DIFFUSION = P"
+
           - name: CODE_POSTAL
-            meta: {pii: false}
+            description: "Code postal de l'établissement"
+            meta:
+              pii: true
+              rgpd_category: "donnée de localisation"
+              note: "Valeur [ND] quand STATUT_DIFFUSION = P"
+
+          - name: COMMUNE
+            description: "Nom de la commune de l'établissement"
+            meta:
+              pii: true
+              rgpd_category: "donnée de localisation"
+
+          - name: CODE_COMMUNE
+            description: "Code INSEE de la commune (5 chiffres)"
+            meta:
+              pii: true
+              rgpd_category: "donnée de localisation"
+
+          - name: DATE_CREATION_ETAB_PARSED
+            description: >
+              Date de création de l'établissement parsée — à utiliser à la place de DATE_CREATION_ETAB.
+              DATE_CREATION_ETAB (epoch microsecondes brut) ne doit pas être utilisée directement.
+            meta:
+              pii: true
+              rgpd_category: "donnée temporelle liée à l'entité"
+
+          - name: DATE_FERMETURE_ETAB
+            description: "Date de fermeture de l'établissement — NULL si encore actif"
+            meta:
+              pii: false
+              rgpd_category: "donnée administrative"
+
+          - name: DATE_CREATION_UL
+            description: "Date de création de l'unité légale"
+            meta:
+              pii: true
+              rgpd_category: "donnée temporelle liée à l'entité"
+
           - name: ETAT_ADMIN_ETAB
-            description: "Actif ou Fermé"
+            description: "État administratif de l'établissement"
+            tests:
+              - accepted_values:
+                  values: ['Actif', 'Fermé']
+
+          - name: ETAT_ADMIN_UL
+            description: "État administratif de l'unité légale"
+            tests:
+              - accepted_values:
+                  values: ['Active', 'Cessée']
+
+          - name: ETABLISSEMENT_SIEGE
+            description: "Indique si l'établissement est le siège social : oui / non (minuscules)"
+            tests:
+              - accepted_values:
+                  values: ['oui', 'non']
+
+          - name: ACTIVITE_PRINCIPALE_ETAB
+            description: "Code APE / NAF de l'activité principale de l'établissement"
+
+          - name: ACTIVITE_PRINCIPALE_UL
+            description: "Code APE / NAF de l'activité principale de l'unité légale"
+
+          - name: CATEGORIE_ENTREPRISE
+            description: "Catégorie de l'entreprise : PME, ETI, GE — NULL pour les micro-entreprises"
+
+          - name: CATEGORIE_JURIDIQUE
+            description: "Code de la catégorie juridique (ex : 1000 = entrepreneur individuel, 6541 = SAS)"
+
+          - name: DEPARTEMENT
+            description: "Nom du département — toujours Loire-Atlantique dans cette table"
+
+          - name: CODE_DEPARTEMENT
+            description: "Code du département — toujours 44 dans cette table"
+            tests:
+              - accepted_values:
+                  values: ['44']
+
+          - name: REGION
+            description: "Nom de la région — toujours Pays de la Loire dans cette table"
+
+          - name: ANNEE
+            description: "Année du snapshot SIRENE — sentinelle 1900 = année inconnue, filtrée en staging"
+
+          - name: MOIS
+            description: "Mois du snapshot SIRENE — valeurs hors 1-12 filtrées en staging"

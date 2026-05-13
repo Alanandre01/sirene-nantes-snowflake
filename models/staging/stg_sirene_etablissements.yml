@@ -2,29 +2,144 @@ version: 2
 
 models:
   - name: stg_sirene_etablissements
-    description: "Établissements SIRENE Loire-Atlantique — nettoyés et typés"
+    description: >
+      Staging des établissements SIRENE Loire-Atlantique (44).
+      Nettoyage des valeurs [ND], cast des types, renommage métier des colonnes.
+      Exclut les lignes avec SIRET mal formé, ANNEE=1900 (sentinelle), MOIS hors 1-12.
+    meta:
+      layer: staging
+      owner: "data_engineer"
+      rgpd_compliant: true
+
     columns:
       - name: siret
-        description: "Identifiant unique établissement"
+        description: "Identifiant établissement (14 chiffres) — non unique : une ligne par SIRET×partition"
+        meta:
+          pii: true
+          rgpd_category: "identifiant direct"
         tests: [not_null]
 
       - name: siren
+        description: "Identifiant de l'unité légale (9 chiffres)"
+        meta:
+          pii: true
+          rgpd_category: "identifiant direct"
         tests: [not_null]
 
+      - name: nic
+        description: "Numéro Interne de Classement (5 chiffres)"
+        meta:
+          pii: false
+          rgpd_category: "identifiant partiel"
+
+      - name: date_creation_etab
+        description: "Date de création de l'établissement — issu de DATE_CREATION_ETAB_PARSED (jamais DATE_CREATION_ETAB)"
+        meta:
+          pii: true
+          rgpd_category: "donnée temporelle liée à l'entité"
+
+      - name: date_fermeture_etab
+        description: "Date de fermeture de l'établissement — NULL si encore actif"
+        meta:
+          pii: false
+          rgpd_category: "donnée administrative"
+
+      - name: date_creation_ul
+        description: "Date de création de l'unité légale"
+        meta:
+          pii: true
+          rgpd_category: "donnée temporelle liée à l'entité"
+
       - name: etat_etablissement
+        description: "Statut administratif de l'établissement (depuis ETAT_ADMIN_ETAB)"
         tests:
+          - not_null
           - accepted_values:
               values: ['Actif', 'Fermé']
 
       - name: est_siege
-        description: "TRUE si l'établissement est le siège social"
+        description: "Booléen — true si l'établissement est le siège social (converti depuis oui/non)"
         tests:
           - accepted_values:
               values: [true, false]
               quote: false
 
+      - name: statut_diffusion
+        description: >
+          Niveau de diffusabilité : O = données totalement diffusables,
+          P = données partiellement diffusables (entrepreneur ayant exercé droit d'opposition RGPD).
+        meta:
+          pii: false
+          rgpd_category: "métadonnée de conformité RGPD"
+
+      - name: code_naf_etab
+        description: "Code NAF de l'activité principale de l'établissement (depuis ACTIVITE_PRINCIPALE_ETAB)"
+
+      - name: code_naf_ul
+        description: "Code NAF de l'activité principale de l'unité légale (depuis ACTIVITE_PRINCIPALE_UL)"
+
+      - name: tranche_effectif
+        description: "Tranche d'effectif salarié — NULL si [ND] en source"
+
+      - name: categorie_entreprise
+        description: "Catégorie de l'entreprise : PME, ETI, GE — NULL si [ND] ou micro-entreprise"
+
+      - name: categorie_juridique
+        description: "Code de la catégorie juridique de l'unité légale"
+
+      - name: est_employeur
+        description: "Caractère employeur de l'établissement (depuis CARACTERE_EMPLOYEUR)"
+
+      - name: code_postal
+        description: "Code postal de l'établissement — NULL si [ND] (STATUT_DIFFUSION = P)"
+        meta:
+          pii: true
+          rgpd_category: "donnée de localisation"
+
+      - name: commune
+        description: "Libellé de la commune — NULL si [ND] (STATUT_DIFFUSION = P)"
+        meta:
+          pii: true
+          rgpd_category: "donnée de localisation"
+
+      - name: code_commune
+        description: "Code INSEE de la commune (5 chiffres)"
+        meta:
+          pii: true
+          rgpd_category: "donnée de localisation"
+
       - name: code_departement
-        description: "Toujours 44 (Loire-Atlantique) dans ce dataset"
+        description: "Code du département — toujours 44 dans ce dataset"
         tests:
           - accepted_values:
               values: ['44']
+
+      - name: departement
+        description: "Libellé du département — toujours Loire-Atlantique"
+
+      - name: code_region
+        description: "Code de la région"
+
+      - name: region
+        description: "Libellé de la région — toujours Pays de la Loire"
+
+      - name: denomination
+        description: "Dénomination de l'unité légale — peut contenir le nom d'un entrepreneur individuel"
+        meta:
+          pii: true
+          rgpd_category: "donnée personnelle potentielle (entrepreneurs individuels)"
+          note: "NULL si [ND] en source (STATUT_DIFFUSION = P)"
+
+      - name: etat_unite_legale
+        description: "Statut administratif de l'unité légale (depuis ETAT_ADMIN_UL)"
+
+      - name: annee_snapshot
+        description: "Année du snapshot SIRENE — NULL exclu (sentinelle 1900 filtrée en amont)"
+        tests: [not_null]
+
+      - name: mois_snapshot
+        description: "Mois du snapshot SIRENE (1-12)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
