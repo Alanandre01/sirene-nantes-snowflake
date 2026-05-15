@@ -216,3 +216,7 @@ target/
 logs/
 *.duckdb
 *.duckdb.wal
+# Fichiers de test Snowpipe (binaires, generes par gen_test_parquet.py)
+sirene_44_test_snowpipe*.parquet
+# Sorties JSON AWS CLI (peuvent contenir ARN ou credentials)
+infra/aws/*.json
