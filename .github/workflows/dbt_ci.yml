@@ -15,6 +15,7 @@ on:
 
 env:
   DBT_PROFILES_DIR: /home/runner/.dbt
+  DBT_PACKAGES_INSTALL_PATH: ./dbt_packages
 
 jobs:
   dbt-pipeline:
@@ -51,7 +52,7 @@ jobs:
                 account: "${{ secrets.SNOWFLAKE_ACCOUNT }}"
                 user: "${{ secrets.SNOWFLAKE_USER }}"
                 password: "${{ secrets.SNOWFLAKE_PASSWORD }}"
-                role: TRANSFORMER
+                role: SYSADMIN
                 warehouse: ALAN_WH
                 database: ALAN_DW
                 schema: DBT_CI
@@ -60,9 +61,8 @@ jobs:
           PROFILE
 
       # ── 5. Installer les packages dbt ─────────────────────────────────
-      # --packages-install-path override le chemin Windows dans dbt_project.yml
       - name: dbt deps
-        run: dbt deps --packages-install-path ./dbt_packages
+        run: dbt deps
 
       # ── 6. Vérifier la connexion ──────────────────────────────────────
       - name: dbt debug
