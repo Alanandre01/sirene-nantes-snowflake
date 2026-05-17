@@ -1,0 +1,12 @@
+# dbt + connecteur Snowflake
+dbt-snowflake>=1.8,<2.0
+
+# Observabilité dbt
+elementary-data>=0.14.0,<0.24.0
+
+# Génération de fichiers Parquet de test (gen_test_parquet.py)
+pandas>=2.0,<4.0
+pyarrow>=14.0,<25.0
+
+# Upload S3 (aws s3 cp via script)
+boto3>=1.20,<2.0

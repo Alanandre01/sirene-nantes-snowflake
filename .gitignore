@@ -214,6 +214,7 @@ CLAUDE.md
 dbt_packages/
 target/
 logs/
+edr_target/
 profiles.yml
 *.duckdb
 *.duckdb.wal

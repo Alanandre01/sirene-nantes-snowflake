@@ -1,4 +1,4 @@
-name: dbt CI — Sirene Nantes
+name: dbt CI - Sirene Nantes
 
 on:
   push:
@@ -35,9 +35,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      # ── 3. Installer dbt-snowflake ────────────────────────────────────
-      - name: Install dbt-snowflake
-        run: pip install "dbt-snowflake>=1.8,<1.9"
+      # ── 3. Installer dbt-snowflake + Elementary CLI ──────────────────
+      - name: Install Python dependencies
+        run: pip install "dbt-snowflake>=1.8,<1.9" "elementary-data>=0.23.0,<0.24.0"
 
       # ── 4. Générer profiles.yml depuis les secrets ────────────────────
       - name: Write profiles.yml
@@ -56,6 +56,20 @@ jobs:
                 warehouse: ALAN_WH
                 database: ALAN_DW
                 schema: DBT_CI
+                threads: 4
+                client_session_keep_alive: false
+          elementary:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+                user: "${{ secrets.SNOWFLAKE_USER }}"
+                password: "${{ secrets.SNOWFLAKE_PASSWORD }}"
+                role: SYSADMIN
+                warehouse: ALAN_WH
+                database: ALAN_DW
+                schema: DBT_CI_ELEMENTARY
                 threads: 4
                 client_session_keep_alive: false
           PROFILE
@@ -80,7 +94,25 @@ jobs:
       - name: dbt docs generate
         run: dbt docs generate --target ci
 
-      # ── 10. Upload artefact docs ──────────────────────────────────────
+      # ── 10. Générer le rapport Elementary ────────────────────────────
+      - name: Generate Elementary report
+        run: |
+          edr report \
+            --profiles-dir ~/.dbt \
+            --project-dir . \
+            --profile-target ci
+        continue-on-error: true   # ne bloque pas le pipeline si Elementary échoue
+
+      # ── 11. Upload rapport Elementary ────────────────────────────────
+      - name: Upload Elementary report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elementary-report-${{ github.run_number }}
+          path: edr_target/elementary_report.html
+          retention-days: 30
+
+      # ── 12. Upload artefact docs ──────────────────────────────────────
       - name: Upload dbt docs
         if: success()
         uses: actions/upload-artifact@v4
@@ -89,7 +121,7 @@ jobs:
           path: target/
           retention-days: 14
 
-      # ── 11. Alerte email sur échec ────────────────────────────────────
+      # ── 13. Alerte email sur échec ────────────────────────────────────
       - name: Notify failure
         if: failure()
         uses: dawidd6/action-send-mail@v3
@@ -100,7 +132,7 @@ jobs:
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_APP_PASSWORD }}
           from: ${{ secrets.EMAIL_USER }}
-          subject: "❌ [sirene-nantes] Pipeline dbt échoué — run #${{ github.run_number }}"
+          subject: "[sirene-nantes] Pipeline dbt échoué - run #${{ github.run_number }}"
           to: alanandre19@gmail.com
           body: |
             Le pipeline dbt a échoué.

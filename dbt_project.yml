@@ -25,3 +25,6 @@ models:
     marts:
       +materialized: table    # marts = tables pour BI
       +schema: marts
+
+  elementary:
+    +schema: elementary
