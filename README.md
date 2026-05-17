@@ -23,7 +23,9 @@ dbt staging (view)                ← nettoyage, cast, macro clean_nd()
 dbt marts (tables)                ← modèles analytiques + modèle incrémental
 ```
 
-![Lineage Graph dbt](docs/snapshots/graph_lineage.png)
+![Lineage Graph dbt](docs/screenshots/graph_lineage.png)
+
+Schéma Mermaid complet du pipeline (S3 → Snowpipe → dbt → Elementary) : [docs/architecture.md](docs/architecture.md)
 
 | Couche | Schema Snowflake | Matérialisation | Rôle |
 |--------|-----------------|-----------------|------|
@@ -165,6 +167,8 @@ Le champ `STATUT_DIFFUSION` est le signal RGPD central :
 > Toutes les colonnes PII sont marquées `meta: {pii: true}` dans les fichiers
 > `schema.yml` — visible dans la documentation dbt (`dbt docs serve`).
 
+Politique de rétention complète, RBAC et procédure d'effacement Art. 17 : [GOVERNANCE.md](GOVERNANCE.md)
+
 ---
 
 ## Pièges SIRENE documentés
@@ -185,10 +189,11 @@ Le champ `STATUT_DIFFUSION` est le signal RGPD central :
 # Activer le venv
 .venv\Scripts\activate
 
-# Variables d'environnement (ne jamais committer)
-$env:SNOWFLAKE_ACCOUNT  = "ton-account-id"
-$env:SNOWFLAKE_USER     = "ton-user"
-$env:SNOWFLAKE_PASSWORD = "ton-password"
+# Variables d'environnement — à définir une seule fois en permanence (ne jamais committer)
+[Environment]::SetEnvironmentVariable('SNOWFLAKE_ACCOUNT',  'orgname-accountname', 'User')
+[Environment]::SetEnvironmentVariable('SNOWFLAKE_USER',     'snowflake_user',      'User')
+[Environment]::SetEnvironmentVariable('SNOWFLAKE_PASSWORD', 'snowflake_password',  'User')
+# Redémarrer VS Code après modification
 
 # Vérifier la connexion
 dbt debug
