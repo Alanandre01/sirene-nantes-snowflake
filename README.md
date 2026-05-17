@@ -1,5 +1,7 @@
 # Pipeline SIRENE Loire-Atlantique — dbt + Snowflake
 
+[![dbt CI](https://github.com/Alanandre01/sirene-nantes-snowflake/actions/workflows/dbt_ci.yml/badge.svg?branch=main)](https://github.com/Alanandre01/sirene-nantes-snowflake/actions/workflows/dbt_ci.yml)
+
 Pipeline de données analytique sur les établissements de Loire-Atlantique (44)
 construit avec **dbt Core** et **Snowflake**, dans le cadre d'une transition
 vers le Data Engineering — ciblant le marché français.
