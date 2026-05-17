@@ -33,7 +33,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       # ── 3. Installer dbt-snowflake ────────────────────────────────────
       - name: Install dbt-snowflake
@@ -100,6 +99,7 @@ jobs:
           secure: true
           username: ${{ secrets.EMAIL_USER }}
           password: ${{ secrets.EMAIL_APP_PASSWORD }}
+          from: ${{ secrets.EMAIL_USER }}
           subject: "❌ [sirene-nantes] Pipeline dbt échoué — run #${{ github.run_number }}"
           to: alanandre19@gmail.com
           body: |
