@@ -1,0 +1,113 @@
+name: dbt CI — Sirene Nantes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'tests/**'
+      - 'packages.yml'
+      - 'dbt_project.yml'
+  schedule:
+    - cron: '0 5 * * *'    # 7h Paris heure d'été / 6h heure d'hiver
+  workflow_dispatch:        # déclenchement manuel depuis l'onglet Actions
+
+env:
+  DBT_PROFILES_DIR: /home/runner/.dbt
+
+jobs:
+  dbt-pipeline:
+    name: dbt run + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+
+      # ── 1. Récupérer le code ───────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Python 3.11 avec cache pip ─────────────────────────────────
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # ── 3. Installer dbt-snowflake ────────────────────────────────────
+      - name: Install dbt-snowflake
+        run: pip install "dbt-snowflake>=1.8,<1.9"
+
+      # ── 4. Générer profiles.yml depuis les secrets ────────────────────
+      - name: Write profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << 'PROFILE'
+          sirene_nantes:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+                user: "${{ secrets.SNOWFLAKE_USER }}"
+                password: "${{ secrets.SNOWFLAKE_PASSWORD }}"
+                role: TRANSFORMER
+                warehouse: ALAN_WH
+                database: ALAN_DW
+                schema: DBT_CI
+                threads: 4
+                client_session_keep_alive: false
+          PROFILE
+
+      # ── 5. Installer les packages dbt ─────────────────────────────────
+      # --packages-install-path override le chemin Windows dans dbt_project.yml
+      - name: dbt deps
+        run: dbt deps --packages-install-path ./dbt_packages
+
+      # ── 6. Vérifier la connexion ──────────────────────────────────────
+      - name: dbt debug
+        run: dbt debug --target ci
+
+      # ── 7. Exécuter les modèles ───────────────────────────────────────
+      - name: dbt run
+        run: dbt run --target ci
+
+      # ── 8. Lancer les tests ───────────────────────────────────────────
+      - name: dbt test
+        run: dbt test --target ci
+
+      # ── 9. Générer la documentation ───────────────────────────────────
+      - name: dbt docs generate
+        run: dbt docs generate --target ci
+
+      # ── 10. Upload artefact docs ──────────────────────────────────────
+      - name: Upload dbt docs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-docs-${{ github.run_number }}
+          path: target/
+          retention-days: 14
+
+      # ── 11. Alerte email sur échec ────────────────────────────────────
+      - name: Notify failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_APP_PASSWORD }}
+          subject: "❌ [sirene-nantes] Pipeline dbt échoué — run #${{ github.run_number }}"
+          to: alanandre19@gmail.com
+          body: |
+            Le pipeline dbt a échoué.
+
+            Branche      : ${{ github.ref_name }}
+            Commit       : ${{ github.sha }}
+            Déclencheur  : ${{ github.event_name }}
+
+            Voir les logs :
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

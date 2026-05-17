@@ -214,6 +214,7 @@ CLAUDE.md
 dbt_packages/
 target/
 logs/
+profiles.yml
 *.duckdb
 *.duckdb.wal
 # Fichiers de test Snowpipe (binaires, generes par gen_test_parquet.py)
