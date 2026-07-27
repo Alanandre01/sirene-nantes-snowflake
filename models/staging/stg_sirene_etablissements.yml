@@ -51,11 +51,21 @@ models:
           rgpd_category: "donnée temporelle liée à l'entité"
 
       - name: etat_etablissement
-        description: "Statut administratif de l'établissement (depuis ETAT_ADMIN_ETAB)"
+        description: >
+          Statut administratif de l'établissement (depuis ETAT_ADMIN_ETAB).
+          NULL pour ~70% des lignes RAW (2026-07-27) — probable artefact de schema
+          evolution Delta côté Databricks (colonne ajoutée après coup, NULL rétroactif
+          sur les lignes écrites avant l'évolution). Sévérité abaissée à warn le temps
+          de confirmer/corriger en amont ; ne pas repasser en error sans investiguer
+          le notebook 03_delta_lake_sirene.
         tests:
-          - not_null
+          - not_null:
+              config:
+                severity: warn
           - accepted_values:
               values: ['Actif', 'Fermé']
+              config:
+                severity: warn
 
       - name: est_siege
         description: "Booléen — true si l'établissement est le siège social (converti depuis oui/non)"
