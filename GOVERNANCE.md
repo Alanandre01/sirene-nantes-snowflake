@@ -121,3 +121,81 @@ ORDER BY EFFECTUE_LE DESC;
 | `ANNEE = 1900` (sentinelle année inconnue) | Filtré `WHERE ANNEE != 1900` en staging |
 | `MOIS` hors 1–12 (ex. `99`) | Filtré `WHERE MOIS BETWEEN 1 AND 12` en staging |
 | SIRET mal formé (< 14 chiffres) | Filtré `WHERE LENGTH(CAST(SIRET AS VARCHAR)) = 14` en staging |
+
+---
+
+## Anomalies de qualité documentées
+
+> Mesures issues du rapport Elementary (`edr report`, M4-S1-J1, voir
+> [docs/j1_elementary_findings.md](docs/j1_elementary_findings.md)) et de
+> requêtes SQL directes sur `ALAN_DW.RAW.SIRENE_ETABLISSEMENTS`, revérifiées
+> le 2026-08-05 (M4-S1-J5) sur la population filtrée par le `WHERE` de staging
+> (`LENGTH(SIRET) = 14`, `ANNEE != 1900`, `MOIS` entre 1 et 12 — 1 565 014 lignes).
+
+### NULL structurel 75,00 % sur les colonnes métier
+
+**Colonnes concernées** : `etat_etablissement`, `commune`, `code_postal`,
+`etablissement_siege`, `statut_diffusion`, `caractere_employeur`
+
+**Taux mesuré** : 75,00 % — 1 173 753 lignes sur 1 565 014.
+Taux stable sur tous les millésimes 2020–2026.
+
+**Hypothèse causale (avec nuance)** : Probable artefact de schema evolution
+Delta non rétroactif côté Databricks — colonnes ajoutées postérieurement
+au chargement initial, sans rétroaction sur les lignes déjà écrites.
+*Nuance* : la stabilité inter-millésimes (même taux observé de 2020 à 2026)
+contredit partiellement cette hypothèse, qui devrait produire un taux plus
+élevé sur les lignes les plus anciennes. Cause définitive non établie.
+
+**Décision opérationnelle** :
+- Test dbt `not_null` sur `etat_etablissement` maintenu à `severity: warn`
+  (commit `ed28b05`, M3-S3-J3 — poussé sur GitHub en M4-S1-J5).
+- Expectation GE `expect_column_values_to_not_be_null` avec `mostly=0.25`
+  sur `ETAT_ETABLISSEMENT`, classifiée `WARN_EXPECTATIONS` dans le Checkpoint
+  `sirene_checkpoint_dag06` de `dag_06` (non bloquante).
+- Aucune action corrective planifiée — anomalie structurelle, pas un bug pipeline.
+
+### `date_creation_etab_parsed` NULL à 100 %
+
+**Taux mesuré** : 100 % — 1 565 004 lignes sur 1 565 014 (colonne quasi
+entièrement vide en staging ; 10 lignes non-NULL résiduelles, négligeables).
+
+**Cause identifiée** : `TRY_TO_DATE()` dans `stg_sirene_etablissements.sql`
+échoue silencieusement sur le format epoch microsecondes brut de
+`DATE_CREATION_ETAB` (RAW). Retour NULL systématique, sans erreur levée.
+
+**Décision opérationnelle** :
+- Colonne `date_creation_etab` (staging, alimentée depuis `DATE_CREATION_ETAB_PARSED`)
+  maintenue dans le schéma staging (contrat d'interface stable).
+- Non utilisée dans les modèles intermédiaires ou marts.
+- Conversion correcte à implémenter : `TO_TIMESTAMP(DATE_CREATION_ETAB / 1000000)::DATE`
+- Expectation GE stricte (sans `mostly`) sur `DATE_CREATION_ETAB` classifiée
+  `WARN_EXPECTATIONS` dans `dag_06` — visible dans Data Docs, non bloquante.
+
+### `code_postal` NULL 79,15 % — deux causes indépendantes et additives
+
+**Taux mesuré** : 79,15 % — 1 238 688 lignes sur 1 565 014 (supérieur aux 75 %
+ci-dessus). Décomposition vérifiée par requête SQL directe, exhaustive et sans
+résidu inexpliqué :
+
+| Cause | Lignes | Part |
+|---|---|---|
+| Cohorte structurelle 75 % (`etat_etablissement` NULL) | 1 173 753 | 75,00 % |
+| Filtre RGPD Art. 21 (`statut_diffusion = 'P'`) | 64 935 | 4,15 % |
+| **Total `code_postal` NULL** | **1 238 688** | **79,15 %** |
+
+**Causes** :
+1. Artefact structurel (~75 %) — identique à la cohorte ci-dessus.
+2. Restriction RGPD Art. 21 : le filtre `statut_diffusion = 'O'` dans
+   `int_etablissements_actifs` exclut des marts les établissements à diffusion
+   restreinte (`statut_diffusion = 'P'`) — la totalité de ces 64 935 lignes a un
+   `CODE_POSTAL` manquant en RAW, sans exception.
+
+**Dimension RGPD** : Le surplus de NULL issu de la population `P` est
+intentionnel et attendu — il ne s'agit pas d'un phénomène résiduel marginal
+mais d'une cohorte entière (64 935 lignes, 4,15 points de plus que la cohorte
+structurelle). Documenté ici pour prévenir toute interprétation erronée lors
+d'un audit de conformité : ce n'est pas une anomalie à corriger.
+
+**Décision opérationnelle** : Expectation GE `mostly=0.25` sur `CODE_POSTAL`,
+classifiée `WARN_EXPECTATIONS` dans `dag_06` (non bloquante).
