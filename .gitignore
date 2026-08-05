@@ -142,6 +142,11 @@ celerybeat.pid
 env/
 venv/
 ENV/
+
+# Secrets / keys
+keys/
+*.p8
+*.pem
 env.bak/
 venv.bak/
 
