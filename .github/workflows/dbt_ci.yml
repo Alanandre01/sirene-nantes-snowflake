@@ -2,7 +2,7 @@ name: dbt CI - Sirene Nantes
 
 on:
   push:
-    branches: [main, 'ci/**']  # 'ci/**' temporaire pour valider cette branche — retirer avant merge
+    branches: [main, 'ci/**']  # 'ci/**' temporaire pour valider cette branche (retirer avant merge)
     paths:
       - 'models/**'
       - 'macros/**'
