@@ -2,13 +2,14 @@ name: dbt CI - Sirene Nantes
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'ci/**']  # 'ci/**' temporaire pour valider cette branche — retirer avant merge
     paths:
       - 'models/**'
       - 'macros/**'
       - 'tests/**'
       - 'packages.yml'
       - 'dbt_project.yml'
+      - '.github/workflows/dbt_ci.yml'
   schedule:
     - cron: '0 5 * * *'    # 7h Paris heure d'été / 6h heure d'hiver
   workflow_dispatch:        # déclenchement manuel depuis l'onglet Actions
@@ -90,12 +91,40 @@ jobs:
       - name: dbt test
         run: dbt test --target ci
 
+      # ── 8bis. Résumer les anomalies (ERROR vs WARN) ───────────────────
+      - name: Vérifier anomalies critiques
+        if: always()
+        run: |
+          python - <<'PYEOF'
+          import json, sys, pathlib
+
+          path = pathlib.Path("target/run_results.json")
+          if not path.exists():
+              print("[SKIP] run_results.json absent")
+              sys.exit(0)
+
+          data = json.loads(path.read_text())
+          errors = [r for r in data.get("results", []) if r.get("status") == "error"]
+          warns  = [r for r in data.get("results", []) if r.get("status") == "warn"]
+
+          if errors:
+              print(f"[CRITIQUE] {len(errors)} test(s) en ERROR")
+              for e in errors:
+                  print(f"  {e.get('unique_id', '?')}")
+              sys.exit(1)
+
+          if warns:
+              print(f"[OK] {len(warns)} warn(s) toléré(s) — voir GOVERNANCE.md")
+          print("[OK] Aucun test en ERROR.")
+          PYEOF
+
       # ── 9. Générer la documentation ───────────────────────────────────
       - name: dbt docs generate
         run: dbt docs generate --target ci
 
       # ── 10. Générer le rapport Elementary ────────────────────────────
       - name: Generate Elementary report
+        if: always()   # génère le rapport même si dbt test/anomalies critiques a échoué
         run: |
           edr report \
             --profiles-dir ~/.dbt \
