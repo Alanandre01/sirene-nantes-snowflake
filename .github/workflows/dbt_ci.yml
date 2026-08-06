@@ -40,7 +40,16 @@ jobs:
       - name: Install Python dependencies
         run: pip install "dbt-snowflake>=1.8,<1.9" "elementary-data>=0.23.0,<0.24.0"
 
-      # ── 4. Générer profiles.yml depuis les secrets ────────────────────
+      # ── 4a. Écrire la clé privée Snowflake depuis le secret ───────────
+      - name: Write Snowflake private key
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/rsa_key.p8 << 'EOF'
+          ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+          EOF
+          chmod 600 ~/.dbt/rsa_key.p8
+
+      # ── 4b. Générer profiles.yml depuis les secrets ───────────────────
       - name: Write profiles.yml
         run: |
           mkdir -p ~/.dbt
@@ -52,7 +61,7 @@ jobs:
                 type: snowflake
                 account: "${{ secrets.SNOWFLAKE_ACCOUNT }}"
                 user: "${{ secrets.SNOWFLAKE_USER }}"
-                password: "${{ secrets.SNOWFLAKE_PASSWORD }}"
+                private_key_path: /home/runner/.dbt/rsa_key.p8
                 role: SYSADMIN
                 warehouse: ALAN_WH
                 database: ALAN_DW
@@ -66,7 +75,7 @@ jobs:
                 type: snowflake
                 account: "${{ secrets.SNOWFLAKE_ACCOUNT }}"
                 user: "${{ secrets.SNOWFLAKE_USER }}"
-                password: "${{ secrets.SNOWFLAKE_PASSWORD }}"
+                private_key_path: /home/runner/.dbt/rsa_key.p8
                 role: SYSADMIN
                 warehouse: ALAN_WH
                 database: ALAN_DW
